@@ -1,56 +1,74 @@
 import { loadEnv, defineConfig } from '@medusajs/framework/utils';
 
-// Load environment variables based on the current NODE_ENV
+// Load environment variables
 loadEnv(process.env.NODE_ENV || 'development', process.cwd());
 
-const ADMIN_CORS = process.env.ADMIN_CORS || "";
-const STORE_CORS = process.env.STORE_CORS || "";
+// Environment variables with better defaults
+const ADMIN_CORS = process.env.ADMIN_CORS || "http://localhost:7000,http://localhost:7001";
+const STORE_CORS = process.env.STORE_CORS || "http://localhost:8000";
 const AUTH_CORS = process.env.AUTH_CORS || "";
-const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
-const COOKIE_SECRET = process.env.COOKIE_SECRET || "supersecret";
-const DATABASE_URL = process.env.DATABASE_URL || "postgres://localhost/medusa-db";
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+const JWT_SECRET = process.env.JWT_SECRET || throwError("JWT_SECRET is required");
+const COOKIE_SECRET = process.env.COOKIE_SECRET || throwError("COOKIE_SECRET is required");
+const DATABASE_URL = process.env.DATABASE_URL || throwError("DATABASE_URL is required");
+const REDIS_URL = process.env.REDIS_URL || throwError("REDIS_URL is required");
+
+// Helper function for required env vars
+function throwError(message) {
+  throw new Error(message);
+}
 
 module.exports = defineConfig({
   projectConfig: {
-    // Only basic HTTP configurations and secrets go here directly.
     http: {
+      port: process.env.PORT || 8080, // Crucial for Render
       storeCors: STORE_CORS,
       adminCors: ADMIN_CORS,
       authCors: AUTH_CORS,
       jwtSecret: JWT_SECRET,
       cookieSecret: COOKIE_SECRET,
-    }
+    },
+    database: {
+      type: "postgres",
+      url: DATABASE_URL,
+      extra: {
+        ssl: process.env.NODE_ENV === "production" ? {
+          rejectUnauthorized: false,
+          ca: process.env.DB_SSL_CA?.replace(/\\n/g, '\n'),
+          key: process.env.DB_SSL_KEY?.replace(/\\n/g, '\n'),
+          cert: process.env.DB_SSL_CERT?.replace(/\\n/g, '\n')
+        } : undefined
+      }
+    },
+    redis_url: REDIS_URL // Critical addition for Redis
   },
   modules: {
-    // Core database module configuration
     database: {
       resolve: "@medusajs/medusa/database",
       options: {
         databaseUrl: DATABASE_URL,
-        type: "postgres", // This is where databaseType goes
-        driver: "mikro-orm", // This is where databaseDriver goes
-        extra: process.env.NODE_ENV !== "development" ? { // This is where database_extra goes
+        type: "postgres",
+        driver: "mikro-orm",
+        extra: process.env.NODE_ENV !== "development" ? {
           ssl: {
-            rejectUnauthorized: false,
-          },
-        } : {},
-      },
+            rejectUnauthorized: false
+          }
+        } : {}
+      }
     },
-    // Core event bus module configuration (often uses Redis)
     eventBus: {
-      resolve: "@medusajs/medusa/event-bus-redis", // Use the Redis event bus
+      resolve: "@medusajs/medusa/event-bus-redis",
       options: {
-        redisUrl: REDIS_URL, // Configure Redis URL here
-      },
+        redisUrl: REDIS_URL
+      }
     },
-    // Stock location module configuration (explicitly include if needed, as it was failing before)
     stockLocation: {
       resolve: "@medusajs/medusa/stock-location",
-      options: {},
+      options: {}
     },
-  
-   
+    tax: {  // Added tax module to resolve your errors
+      resolve: "@medusajs/medusa-tax",
+      options: {}
+    },
     payment: {
       resolve: "@medusajs/medusa/payment",
       options: {
@@ -59,13 +77,13 @@ module.exports = defineConfig({
             resolve: "@medusajs/payment-stripe",
             id: "stripe",
             options: {
-              apiKey: process.env.STRIPE_API_KEY,
+              apiKey: process.env.STRIPE_API_KEY || throwError("STRIPE_API_KEY required"),
               webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
-              capture: true,
-            },
-          },
-        ],
-      },
-    },
+              capture: true
+            }
+          }
+        ]
+      }
+    }
   }
 });
