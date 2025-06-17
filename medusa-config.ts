@@ -3,16 +3,29 @@ import { loadEnv, defineConfig } from '@medusajs/framework/utils'
 // Load environment variables based on the current NODE_ENV
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
+// Define REDIS_URL from environment variables
+const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
+    databaseType: "postgres", // Explicitly set databaseType
+    databaseDriver: "mikro-orm", // Explicitly set databaseDriver (this is common for Medusa v2)
+    redisUrl: REDIS_URL, // Use the REDIS_URL defined above
     http: {
       storeCors: process.env.STORE_CORS!,
       adminCors: process.env.ADMIN_CORS!,
       authCors: process.env.AUTH_CORS!,
       jwtSecret: process.env.JWT_SECRET || "supersecret",
       cookieSecret: process.env.COOKIE_SECRET || "supersecret",
-    }
+    },
+    // *** ADD THIS SECTION FOR SSL/TLS REQUIRED BY RENDER'S POSTGRES ***
+    database_extra: process.env.NODE_ENV !== "development" ? {
+      ssl: {
+        rejectUnauthorized: false,
+      },
+    } : {},
+    // ******************************************************************
   },
   // Add the modules configuration here
   modules: {
@@ -25,19 +38,9 @@ module.exports = defineConfig({
             resolve: "@medusajs/payment-stripe", // The Stripe payment plugin you've installed
             id: "stripe", // A unique ID for this payment provider
             options: {
-              // Your Stripe Secret API Key (starts with sk_).
-              // It's crucial to load this from environment variables.
               apiKey: process.env.STRIPE_API_KEY,
-              // Your Stripe Webhook Secret (starts with whsec_).
-              // Also load this from environment variables, especially for production.
               webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
-              // Set to true if you want payments to be captured automatically after successful authorization.
-              // Set to false if you want to manually capture payments from the Medusa Admin.
               capture: true,
-              // You can add other Stripe-specific options here if needed,
-              // for example, to pass additional metadata or configuration to Stripe API calls.
-              // For example:
-              // enable_saved_cards: true,
             },
           },
           // You can add other payment providers here if you have more, e.g.,
