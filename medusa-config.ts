@@ -1,89 +1,87 @@
-import { loadEnv, defineConfig } from '@medusajs/framework/utils';
+import { loadEnv, defineConfig } from '@medusajs/framework/utils'
 
-// Load environment variables
-loadEnv(process.env.NODE_ENV || 'development', process.cwd());
-
-// Environment variables with better defaults
-const ADMIN_CORS = process.env.ADMIN_CORS || "http://localhost:7000,http://localhost:7001";
-const STORE_CORS = process.env.STORE_CORS || "http://localhost:8000";
-const AUTH_CORS = process.env.AUTH_CORS || "";
-const JWT_SECRET = process.env.JWT_SECRET || throwError("JWT_SECRET is required");
-const COOKIE_SECRET = process.env.COOKIE_SECRET || throwError("COOKIE_SECRET is required");
-const DATABASE_URL = process.env.DATABASE_URL || throwError("DATABASE_URL is required");
-const REDIS_URL = process.env.REDIS_URL || throwError("REDIS_URL is required");
-
-// Helper function for required env vars
-function throwError(message) {
-  throw new Error(message);
-}
+// Load environment variables based on the current NODE_ENV
+loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
 module.exports = defineConfig({
   projectConfig: {
+    databaseUrl: process.env.DATABASE_URL,
     http: {
-      port: process.env.PORT || 8080, // Crucial for Render
-      storeCors: STORE_CORS,
-      adminCors: ADMIN_CORS,
-      authCors: AUTH_CORS,
-      jwtSecret: JWT_SECRET,
-      cookieSecret: COOKIE_SECRET,
-    },
-    database: {
-      type: "postgres",
-      url: DATABASE_URL,
-      extra: {
-        ssl: process.env.NODE_ENV === "production" ? {
-          rejectUnauthorized: false,
-          ca: process.env.DB_SSL_CA?.replace(/\\n/g, '\n'),
-          key: process.env.DB_SSL_KEY?.replace(/\\n/g, '\n'),
-          cert: process.env.DB_SSL_CERT?.replace(/\\n/g, '\n')
-        } : undefined
-      }
-    },
-    redis_url: REDIS_URL // Critical addition for Redis
+      storeCors: process.env.STORE_CORS!,
+      adminCors: process.env.ADMIN_CORS!,
+      authCors: process.env.AUTH_CORS!,
+      jwtSecret: process.env.JWT_SECRET || "supersecret",
+      cookieSecret: process.env.COOKIE_SECRET || "supersecret",
+    }
   },
+  // Add the modules configuration here
   modules: {
-    database: {
-      resolve: "@medusajs/medusa/database",
-      options: {
-        databaseUrl: DATABASE_URL,
-        type: "postgres",
-        driver: "mikro-orm",
-        extra: process.env.NODE_ENV !== "development" ? {
-          ssl: {
-            rejectUnauthorized: false
-          }
-        } : {}
-      }
-    },
-    eventBus: {
-      resolve: "@medusajs/medusa/event-bus-redis",
-      options: {
-        redisUrl: REDIS_URL
-      }
-    },
-    stockLocation: {
-      resolve: "@medusajs/medusa/stock-location",
-      options: {}
-    },
-    tax: {  // Added tax module to resolve your errors
-      resolve: "@medusajs/medusa-tax",
-      options: {}
-    },
+    // This is the core payment module for Medusa v2
     payment: {
       resolve: "@medusajs/medusa/payment",
       options: {
         providers: [
           {
-            resolve: "@medusajs/payment-stripe",
-            id: "stripe",
+            resolve: "@medusajs/payment-stripe", // The Stripe payment plugin you've installed
+            id: "stripe", // A unique ID for this payment provider
             options: {
-              apiKey: process.env.STRIPE_API_KEY || throwError("STRIPE_API_KEY required"),
+              // Your Stripe Secret API Key (starts with sk_).
+              // It's crucial to load this from environment variables.
+              apiKey: process.env.STRIPE_API_KEY,
+              // Your Stripe Webhook Secret (starts with whsec_).
+              // Also load this from environment variables, especially for production.
               webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
-              capture: true
-            }
-          }
-        ]
-      }
-    }
+              // Set to true if you want payments to be captured automatically after successful authorization.
+              // Set to false if you want to manually capture payments from the Medusa Admin.
+              capture: true,
+              // You can add other Stripe-specific options here if needed,
+              // for example, to pass additional metadata or configuration to Stripe API calls.
+              // For example:
+              // enable_saved_cards: true,
+            },
+          },
+          // You can add other payment providers here if you have more, e.g.,
+          // {
+          //   resolve: "@medusajs/medusa/payment-paypal",
+          //   id: "paypal",
+          //   options: {
+          //     // PayPal options
+          //   }
+          // }
+        ],
+      },
+    },
+    // You might have other modules here (e.g., product, cart, order, shipping)
+    // For example:
+    // product: {
+    //   resolve: "@medusajs/medusa/product",
+    //   options: {}
+    // },
+    // cart: {
+    //   resolve: "@medusajs/medusa/cart",
+    //   options: {}
+    // },
+    // order: {
+    //   resolve: "@medusajs/medusa/order",
+    //   options: {}
+    // },
+    // // Add other core modules if they aren't explicitly defined and you need to configure them
+    // // The default boilerplate usually includes these by default
+    // inventory: {
+    //   resolve: "@medusajs/medusa/inventory",
+    //   options: {}
+    // },
+    // stockLocation: {
+    //   resolve: "@medusajs/medusa/stock-location",
+    //   options: {}
+    // },
+    // tax: {
+    //   resolve: "@medusajs/medusa/tax",
+    //   options: {}
+    // },
+    // shipping: {
+    //   resolve: "@medusajs/medusa/shipping",
+    //   options: {}
+    // }
   }
-});
+})
