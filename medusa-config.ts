@@ -1,87 +1,111 @@
-import { loadEnv, defineConfig } from '@medusajs/framework/utils'
+import { loadEnv, defineConfig } from '@medusajs/framework/utils';
 
-// Load environment variables based on the current NODE_ENV
-loadEnv(process.env.NODE_ENV || 'development', process.cwd())
+// Load environment variables
+loadEnv(process.env.NODE_ENV || 'development', process.cwd());
+
+// Validate required environment variables
+const requiredEnvVars = [
+  'DATABASE_URL',
+  'REDIS_URL',
+  'JWT_SECRET',
+  'COOKIE_SECRET',
+  'STRIPE_API_KEY'
+];
+
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar] && process.env.NODE_ENV === 'production') {
+    throw new Error(`${envVar} is a required environment variable`);
+  }
+}
+
+// Default CORS for development
+const ADMIN_CORS = process.env.ADMIN_CORS || "http://localhost:7000,http://localhost:7001";
+const STORE_CORS = process.env.STORE_CORS || "http://localhost:8000";
+const AUTH_CORS = process.env.AUTH_CORS || "";
 
 module.exports = defineConfig({
   projectConfig: {
-    databaseUrl: process.env.DATABASE_URL,
+    // Database configuration
+    database_url: process.env.DATABASE_URL,
+    database_type: "postgres",
+    database_extra: process.env.NODE_ENV === "production" ? {
+      ssl: {
+        rejectUnauthorized: false
+      }
+    } : {},
+    
+    // Redis configuration
+    redis_url: process.env.REDIS_URL,
+    
+    // HTTP server configuration
     http: {
-      storeCors: process.env.STORE_CORS!,
-      adminCors: process.env.ADMIN_CORS!,
-      authCors: process.env.AUTH_CORS!,
+      port: process.env.PORT || 8080,
+      storeCors: STORE_CORS,
+      adminCors: ADMIN_CORS,
+      authCors: AUTH_CORS,
       jwtSecret: process.env.JWT_SECRET || "supersecret",
       cookieSecret: process.env.COOKIE_SECRET || "supersecret",
     }
   },
-  // Add the modules configuration here
+
   modules: {
-    // This is the core payment module for Medusa v2
+    // Core database module
+    database: {
+      resolve: "@medusajs/medusa/database",
+      options: {
+        databaseUrl: process.env.DATABASE_URL,
+        type: "postgres",
+        driver: "mikro-orm",
+        extra: process.env.NODE_ENV === "production" ? {
+          ssl: {
+            rejectUnauthorized: false
+          }
+        } : {}
+      }
+    },
+
+    // Event bus (Redis)
+    eventBus: {
+      resolve: "@medusajs/medusa/event-bus-redis",
+      options: {
+        redisUrl: process.env.REDIS_URL
+      }
+    },
+
+    // Payment module (Stripe)
     payment: {
       resolve: "@medusajs/medusa/payment",
       options: {
         providers: [
           {
-            resolve: "@medusajs/payment-stripe", // The Stripe payment plugin you've installed
-            id: "stripe", // A unique ID for this payment provider
+            resolve: "@medusajs/payment-stripe",
+            id: "stripe",
             options: {
-              // Your Stripe Secret API Key (starts with sk_).
-              // It's crucial to load this from environment variables.
               apiKey: process.env.STRIPE_API_KEY,
-              // Your Stripe Webhook Secret (starts with whsec_).
-              // Also load this from environment variables, especially for production.
-              webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
-              // Set to true if you want payments to be captured automatically after successful authorization.
-              // Set to false if you want to manually capture payments from the Medusa Admin.
-              capture: true,
-              // You can add other Stripe-specific options here if needed,
-              // for example, to pass additional metadata or configuration to Stripe API calls.
-              // For example:
-              // enable_saved_cards: true,
-            },
-          },
-          // You can add other payment providers here if you have more, e.g.,
-          // {
-          //   resolve: "@medusajs/medusa/payment-paypal",
-          //   id: "paypal",
-          //   options: {
-          //     // PayPal options
-          //   }
-          // }
-        ],
-      },
+              webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
+              capture: true
+            }
+          }
+        ]
+      }
     },
-    // You might have other modules here (e.g., product, cart, order, shipping)
-    // For example:
-    // product: {
-    //   resolve: "@medusajs/medusa/product",
-    //   options: {}
-    // },
-    // cart: {
-    //   resolve: "@medusajs/medusa/cart",
-    //   options: {}
-    // },
-    // order: {
-    //   resolve: "@medusajs/medusa/order",
-    //   options: {}
-    // },
-    // // Add other core modules if they aren't explicitly defined and you need to configure them
-    // // The default boilerplate usually includes these by default
-    // inventory: {
-    //   resolve: "@medusajs/medusa/inventory",
-    //   options: {}
-    // },
-    // stockLocation: {
-    //   resolve: "@medusajs/medusa/stock-location",
-    //   options: {}
-    // },
-    // tax: {
-    //   resolve: "@medusajs/medusa/tax",
-    //   options: {}
-    // },
-    // shipping: {
-    //   resolve: "@medusajs/medusa/shipping",
-    //   options: {}
-    // }
+
+    // Essential core modules
+    tax: {
+      resolve: "@medusajs/medusa-tax",
+      options: {}
+    },
+    stockLocation: {
+      resolve: "@medusajs/medusa/stock-location",
+      options: {}
+    },
+    inventory: {
+      resolve: "@medusajs/medusa/inventory",
+      options: {}
+    },
+    product: {
+      resolve: "@medusajs/medusa/product",
+      options: {}
+    }
   }
-})
+});
