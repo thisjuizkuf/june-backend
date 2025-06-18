@@ -11,7 +11,7 @@ export default defineConfig({
     redisUrl: process.env.REDIS_URL,
     http: {
       // CORS settings for the storefront API
-      storeCors: process.env.STORE_CORS!,
+      storeCors: "*",
       // CORS settings for the admin API
       adminCors: process.env.ADMIN_CORS!,
       // CORS settings for authentication routes
