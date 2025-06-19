@@ -1,64 +1,117 @@
 import { loadEnv, defineConfig } from '@medusajs/framework/utils'
 
-// Load environment variables based on the current NODE_ENV
-loadEnv(process.env.NODE_ENV || 'development', process.cwd())
+// Load environment variables
+loadEnv(process.env.NODE_ENV || 'production', process.cwd())
 
 export default defineConfig({
   projectConfig: {
-    // Database URL for PostgreSQL
+    // Database configuration
     databaseUrl: process.env.DATABASE_URL,
-    // Redis URL for session management and queues
+    database_type: "postgres",
     redisUrl: process.env.REDIS_URL,
+
+    // HTTP Server Configuration
     http: {
-      // CORS settings for the storefront API
-      storeCors: "*",
-      // CORS settings for the admin API
-      adminCors: process.env.ADMIN_CORS!,
-      // CORS settings for authentication routes
-      authCors: process.env.AUTH_CORS!,
-      // Secret for JWT token generation
-      jwtSecret: process.env.JWT_SECRET || "supersecret", // REMEMBER TO USE A STRONG, RANDOM SECRET IN PRODUCTION
-      // Secret for cookie encryption
-      cookieSecret: process.env.COOKIE_SECRET || "supersecret", // REMEMBER TO USE A STRONG, RANDOM SECRET IN PRODUCTION
-    }
-    // IMPORTANT: 'port' should NOT be here. Render handles the port via environment variables.
+      // Storefront CORS (your live store + local development)
+      storeCors: [
+        "https://exoticpetheven.com",
+        "https://www.exoticpetheven.com",
+        "http://localhost:8000"
+      ].join(","),
+      
+      // Admin CORS (dedicated subdomain recommended)
+      adminCors: [
+        "https://admin.exoticpetheven.com",
+        "https://backend-9byh.onrender.com",
+        "http://localhost:7001"
+      ].join(","),
+      
+      // Auth CORS
+      authCors: [
+        "https://exoticpetheven.com",
+        "https://admin.exoticpetheven.com"
+      ].join(","),
+
+      // Security - MUST be set via environment variables
+      jwtSecret: process.env.JWT_SECRET,  // Generate via: openssl rand -hex 32
+      cookieSecret: process.env.COOKIE_SECRET,  // Generate via: openssl rand -hex 32
+      
+      // Disable localhost warning in production
+      adminApiDisabled: false
+    },
+
+    // Uncomment if using file uploads
+    // file_service: "s3",
+    // file_service_config: {
+    //   s3: {
+    //     bucket: process.env.S3_BUCKET,
+    //     region: process.env.S3_REGION,
+    //     access_key_id: process.env.S3_ACCESS_KEY_ID,
+    //     secret_access_key: process.env.S3_SECRET_ACCESS_KEY,
+    //     endpoint: process.env.S3_ENDPOINT || undefined
+    //   }
+    // }
   },
-  // Disable admin bundling if environment variable DISABLE_MEDUSA_ADMIN is true
+
+  // Admin Dashboard Configuration
   admin: {
-    disable: process.env.DISABLE_MEDUSA_ADMIN === "true",
+    disable: false,
+    // Uncomment to customize admin path (not recommended)
+    // path: "/dashboard"
   },
-  // Modules configuration
+
+  // Plugin Configuration
+  plugins: [
+    {
+      resolve: "@medusajs/admin-ui",
+      options: {
+        serve: true,
+        path: "/admin"
+      }
+    }
+  ],
+
+  // Modules Configuration
   modules: {
-    // API Key module configuration to disable publishable API key requirement for storefront
+    // API Key Module
     api_key: {
       resolve: "@medusajs/api-key",
       options: {
         publishableKeys: {
-          // Set to false to disable publishable API key requirement for all storefront routes
-          // This should be set via environment variable MEDUSA_MODULES_API_KEY_OPTIONS_PUBLISHABLE_KEYS_ENABLED=false on Render
-          enabled: process.env.MEDUSA_MODULES_API_KEY_OPTIONS_PUBLISHABLE_KEYS_ENABLED !== "true" // Read from env, default to false if not 'true'
+          enabled: process.env.REQUIRE_API_KEYS === "true"
         }
       }
     },
 
-    // Core payment module for Medusa v2
+    // Payment Module
     payment: {
-      resolve: "@medusajs/medusa/payment",
+      resolve: "@medusajs/medusa-payment",
       options: {
-        // Payment providers configuration
         providers: [
           {
-            resolve: "@medusajs/payment-stripe", // The Stripe payment plugin
-            id: "stripe", // Unique ID for this payment provider
+            resolve: "@medusajs/payment-stripe",
             options: {
-              apiKey: process.env.STRIPE_API_KEY, // Stripe API Key from environment variables
-              webhookSecret: process.env.STRIPE_WEBHOOK_SECRET, // Stripe Webhook Secret from environment variables
-              capture: true, // Whether to capture payments immediately
-            },
-          },
-        ],
-      },
+              api_key: process.env.STRIPE_API_KEY,
+              webhook_secret: process.env.STRIPE_WEBHOOK_SECRET
+            }
+          }
+        ]
+      }
     },
-    // Add other modules here as needed (e.g., notification, fulfillment, tax)
+
+    // Cache Module (recommended for production)
+    cacheService: {
+      resolve: "@medusajs/cache-redis",
+      options: {
+        redisUrl: process.env.REDIS_URL,
+        ttl: 3600 // 1 hour cache
+      }
+    }
+  },
+
+  // Feature Flags
+  featureFlags: {
+    product_categories: true,
+    sales_channels: true
   }
 })
