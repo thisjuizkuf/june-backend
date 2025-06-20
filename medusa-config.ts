@@ -57,60 +57,7 @@ module.exports = defineConfig({
         redisUrl: process.env.REDIS_URL,
       },
     },
-    // **NEW**: Add a File Service Module for Production (e.g., S3)
-    // If you're handling user-uploaded files (product images, etc.),
-    // you need a production-ready file storage solution.
-    // Replace this with your chosen provider (e.g., @medusajs/file-s3)
-    file: {
-      resolve: "@medusajs/medusa/file", // Core file module
-      options: {
-        providers: [
-          {
-            resolve: "@medusajs/file-s3", // Example: AWS S3 provider
-            id: "s3",
-            options: {
-              access_key_id: process.env.S3_ACCESS_KEY_ID,
-              secret_access_key: process.env.S3_SECRET_ACCESS_KEY,
-              bucket: process.env.S3_BUCKET_NAME,
-              region: process.env.S3_REGION,
-              // file_url: process.env.S3_URL, // Often derived from bucket/region, but can be set if custom endpoint
-            },
-          },
-        ],
-      },
-    },
-
-    // You might have other modules here (e.g., product, cart, order, shipping)
-    // These are typically included by default in Medusa v2 boilerplate,
-    // so you generally only need to explicitly add them if you want to override their default options
-    // or use a custom resolver.
-    // product: {
-    //   resolve: "@medusajs/medusa/product",
-    //   options: {}
-    // },
-    // cart: {
-    //   resolve: "@medusajs/medusa/cart",
-    //   options: {}
-    // },
-    // order: {
-    //   resolve: "@medusajs/medusa/order",
-    //   options: {}
-    // },
-    // inventory: {
-    //   resolve: "@medusajs/medusa/inventory",
-    //   options: {}
-    // },
-    // stockLocation: {
-    //   resolve: "@medusajs/medusa/stock-location",
-    //   options: {}
-    // },
-    // tax: {
-    //   resolve: "@medusajs/medusa/tax",
-    //   options: {}
-    // },
-    // shipping: {
-    //   resolve: "@medusajs/medusa/shipping",
-    //   options: {}
+    
     // }
   },
 })
