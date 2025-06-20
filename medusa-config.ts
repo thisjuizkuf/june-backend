@@ -1,117 +1,116 @@
 import { loadEnv, defineConfig } from '@medusajs/framework/utils'
 
-// Load environment variables
-loadEnv(process.env.NODE_ENV || 'production', process.cwd())
+// Load environment variables based on the current NODE_ENV
+loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
-export default defineConfig({
+module.exports = defineConfig({
   projectConfig: {
-    // Database configuration
     databaseUrl: process.env.DATABASE_URL,
-    database_type: "postgres",
-    redisUrl: process.env.REDIS_URL,
-
-    // HTTP Server Configuration
+    // Add database driver options for production SSL connections if needed (e.g., for external PostgreSQL)
+    // databaseDriverOptions: process.env.NODE_ENV !== "development" ? { connection: { ssl: { rejectUnauthorized: false } } } : {},
     http: {
-      // Storefront CORS (your live store + local development)
-      storeCors: [
-        "https://exoticpetheven.com",
-        "https://www.exoticpetheven.com",
-        "http://localhost:8000"
-      ].join(","),
-      
-      // Admin CORS (dedicated subdomain recommended)
-      adminCors: [
-        "https://admin.exoticpetheven.com",
-        "https://backend-9byh.onrender.com",
-        "http://localhost:7001"
-      ].join(","),
-      
-      // Auth CORS
-      authCors: [
-        "https://exoticpetheven.com",
-        "https://admin.exoticpetheven.com"
-      ].join(","),
-
-      // Security - MUST be set via environment variables
-      jwtSecret: process.env.JWT_SECRET,  // Generate via: openssl rand -hex 32
-      cookieSecret: process.env.COOKIE_SECRET,  // Generate via: openssl rand -hex 32
-      
-      // Disable localhost warning in production
-      adminApiDisabled: false
+      storeCors: process.env.STORE_CORS!,
+      adminCors: process.env.ADMIN_CORS!,
+      authCors: process.env.AUTH_CORS!,
+      jwtSecret: process.env.JWT_SECRET || "supersecret", // **IMPORTANT**: Change default for production
+      cookieSecret: process.env.COOKIE_SECRET || "supersecret", // **IMPORTANT**: Change default for production
     },
-
-    // Uncomment if using file uploads
-    // file_service: "s3",
-    // file_service_config: {
-    //   s3: {
-    //     bucket: process.env.S3_BUCKET,
-    //     region: process.env.S3_REGION,
-    //     access_key_id: process.env.S3_ACCESS_KEY_ID,
-    //     secret_access_key: process.env.S3_SECRET_ACCESS_KEY,
-    //     endpoint: process.env.S3_ENDPOINT || undefined
-    //   }
-    // }
+    // **NEW**: Configure worker mode based on environment variable
+    workerMode: (process.env.MEDUSA_WORKER_MODE || "shared") as "shared" | "worker" | "server",
+    // **NEW**: Configure Redis URL for session storage
+    redisUrl: process.env.REDIS_URL, // Used by Medusa for session management
   },
-
-  // Admin Dashboard Configuration
+  // **NEW**: Admin configuration for disabling in worker mode
   admin: {
-    disable: false,
-    // Uncomment to customize admin path (not recommended)
-    // path: "/dashboard"
+    disable: process.env.DISABLE_MEDUSA_ADMIN === "true",
   },
-
-  // Plugin Configuration
-  plugins: [
-    {
-      resolve: "@medusajs/admin-ui",
-      options: {
-        serve: true,
-        path: "/admin"
-      }
-    }
-  ],
-
-  // Modules Configuration
   modules: {
-    // API Key Module
-    api_key: {
-      resolve: "@medusajs/api-key",
-      options: {
-        publishableKeys: {
-          enabled: process.env.REQUIRE_API_KEYS === "true"
-        }
-      }
-    },
-
-    // Payment Module
+    // This is the core payment module for Medusa v2
     payment: {
-      resolve: "@medusajs/medusa-payment",
+      resolve: "@medusajs/medusa/payment",
       options: {
         providers: [
           {
-            resolve: "@medusajs/payment-stripe",
+            resolve: "@medusajs/payment-stripe", // The Stripe payment plugin you've installed
+            id: "stripe", // A unique ID for this payment provider
             options: {
-              api_key: process.env.STRIPE_API_KEY,
-              webhook_secret: process.env.STRIPE_WEBHOOK_SECRET
-            }
-          }
-        ]
-      }
+              apiKey: process.env.STRIPE_API_KEY,
+              webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+              capture: true,
+            },
+          },
+        ],
+      },
     },
-
-    // Cache Module (recommended for production)
-    cacheService: {
-      resolve: "@medusajs/cache-redis",
+    // **NEW**: Add Redis Cache Module
+    cache: {
+      resolve: "@medusajs/medusa/cache-redis",
       options: {
         redisUrl: process.env.REDIS_URL,
-        ttl: 3600 // 1 hour cache
-      }
-    }
-  },
+        ttl: 30, // Optional: time-to-live for cached items in seconds
+      },
+    },
+    // **NEW**: Add Redis Event Bus Module
+    eventBus: {
+      resolve: "@medusajs/medusa/event-bus-redis",
+      options: {
+        redisUrl: process.env.REDIS_URL,
+      },
+    },
+    // **NEW**: Add a File Service Module for Production (e.g., S3)
+    // If you're handling user-uploaded files (product images, etc.),
+    // you need a production-ready file storage solution.
+    // Replace this with your chosen provider (e.g., @medusajs/file-s3)
+    file: {
+      resolve: "@medusajs/medusa/file", // Core file module
+      options: {
+        providers: [
+          {
+            resolve: "@medusajs/file-s3", // Example: AWS S3 provider
+            id: "s3",
+            options: {
+              access_key_id: process.env.S3_ACCESS_KEY_ID,
+              secret_access_key: process.env.S3_SECRET_ACCESS_KEY,
+              bucket: process.env.S3_BUCKET_NAME,
+              region: process.env.S3_REGION,
+              // file_url: process.env.S3_URL, // Often derived from bucket/region, but can be set if custom endpoint
+            },
+          },
+        ],
+      },
+    },
 
-  // Feature Flags
-  featureFlags: {
-    product_categories: true,
-    sales_channels: true
-  }
+    // You might have other modules here (e.g., product, cart, order, shipping)
+    // These are typically included by default in Medusa v2 boilerplate,
+    // so you generally only need to explicitly add them if you want to override their default options
+    // or use a custom resolver.
+    // product: {
+    //   resolve: "@medusajs/medusa/product",
+    //   options: {}
+    // },
+    // cart: {
+    //   resolve: "@medusajs/medusa/cart",
+    //   options: {}
+    // },
+    // order: {
+    //   resolve: "@medusajs/medusa/order",
+    //   options: {}
+    // },
+    // inventory: {
+    //   resolve: "@medusajs/medusa/inventory",
+    //   options: {}
+    // },
+    // stockLocation: {
+    //   resolve: "@medusajs/medusa/stock-location",
+    //   options: {}
+    // },
+    // tax: {
+    //   resolve: "@medusajs/medusa/tax",
+    //   options: {}
+    // },
+    // shipping: {
+    //   resolve: "@medusajs/medusa/shipping",
+    //   options: {}
+    // }
+  },
 })
