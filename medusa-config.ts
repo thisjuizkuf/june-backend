@@ -10,8 +10,8 @@ module.exports = defineConfig({
       storeCors: process.env.STORE_CORS!,
       adminCors: process.env.ADMIN_CORS!,
       authCors: process.env.AUTH_CORS!,
-      jwtSecret: process.env.JWT_SECRET || "supersecret",     // IMPORTANT: Change in production
-      cookieSecret: process.env.COOKIE_SECRET || "supersecret", // IMPORTANT: Change in production
+      jwtSecret: process.env.JWT_SECRET || "supersecret",
+      cookieSecret: process.env.COOKIE_SECRET || "supersecret",
     },
     workerMode: (process.env.MEDUSA_WORKER_MODE || "shared") as "shared" | "worker" | "server",
     redisUrl: process.env.REDIS_URL,
@@ -22,7 +22,6 @@ module.exports = defineConfig({
   },
 
   modules: {
-    // Stripe Payment
     payment: {
       resolve: "@medusajs/medusa/payment",
       options: {
@@ -40,7 +39,6 @@ module.exports = defineConfig({
       },
     },
 
-    // Redis Caching
     cache: {
       resolve: "@medusajs/medusa/cache-redis",
       options: {
@@ -49,7 +47,6 @@ module.exports = defineConfig({
       },
     },
 
-    // Redis Event Bus
     eventBus: {
       resolve: "@medusajs/medusa/event-bus-redis",
       options: {
@@ -57,15 +54,15 @@ module.exports = defineConfig({
       },
     },
 
-    // Supabase via S3-compatible storage
+    // ✅ Supabase S3-compatible Storage
     file: {
-      resolve: "@medusajs/file-s3", // ✅ Use the correct package name
+      resolve: "@medusajs/file-s3",
       options: {
-        endpoint: process.env.S3_URL,                     // Supabase S3 endpoint
-        region: process.env.S3_REGION || "us-west-1",     // Can be anything, not used
-        bucket: process.env.S3_BUCKET,                    // Your Supabase bucket name
-        accessKeyId: process.env.S3_ACCESS_KEY_ID,        // Dummy or required (not used)
-        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY // Dummy or required (not used)
+        s3_url: process.env.S3_URL,                  // Supabase S3 endpoint
+        region: process.env.S3_REGION || "us-west-1", // Not used by Supabase, but required
+        bucket: process.env.S3_BUCKET,                // Bucket name in Supabase
+        access_key_id: process.env.S3_ACCESS_KEY_ID,  // Dummy value if unused
+        secret_access_key: process.env.S3_SECRET_ACCESS_KEY // Dummy value if unused
       },
     },
   },
