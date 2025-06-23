@@ -59,5 +59,16 @@ module.exports = defineConfig({
         redisUrl: process.env.REDIS_URL,
       },
     },
+    // --- START: Supabase File Storage Module ---
+    file: { // Add this file module configuration
+      resolve: "medusa-file-supabase",
+      options: {
+        url: process.env.SUPABASE_URL,           // Supabase Project URL
+        anonKey: process.env.SUPABASE_ANON_KEY,   // Supabase Public API Key
+        serviceKey: process.env.SUPABASE_SERVICE_KEY, // Supabase Secret API Key (Service Role Key)
+        bucketName: process.env.SUPABASE_BUCKET, // The name of your Supabase Storage bucket (e.g., 'medusa-images')
+      },
+    },
+    // --- END: Supabase File Storage Module ---
   },
 })
